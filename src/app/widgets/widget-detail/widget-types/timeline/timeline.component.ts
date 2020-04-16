@@ -1,15 +1,16 @@
-import { Component, OnInit, Input, ViewChild, EventEmitter, TemplateRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, Input, ViewChild, OnDestroy } from '@angular/core';
 import { Metric } from '../../../../shared/metric';
 import { Channel } from '../../../../shared/channel';
 import { ColumnMode, SortType } from '@swimlane/ngx-datatable';
 import { MeasurementPipe } from '../../../measurement.pipe';
-import { Subject, Subscription } from 'rxjs';
+import { Subscription } from 'rxjs';
 import { Measurement } from 'src/app/widgets/measurement';
 import { DataFormatService } from 'src/app/widgets/data-format.service';
 import { ViewService } from 'src/app/shared/view.service';
 import { ChannelGroup } from 'src/app/shared/channel-group';
 import { Widget } from 'src/app/widgets/widget';
 import { Threshold } from 'src/app/widgets/threshold';
+import TimelinesChart, { TimelinesChartInstance } from 'timelines-chart';
 
 @Component({
   selector: 'app-timeline',
@@ -46,6 +47,9 @@ export class TimelineComponent implements OnInit, OnDestroy {
     selectedMessage: 'selected'
   };
 
+  // Timeline
+  timeline: any;
+
   // rows = [];
   constructor(
     private dataFormatService: DataFormatService,
@@ -80,23 +84,29 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     this.subscription.add(dateFormatSub);
 
-    const resizeSub = this.viewService.resize.subscribe(
-      widgetId => {
-        if (widgetId === this.widget.id) {
-          this.resize();
-        }
-      }, error => {
-        console.log('error in timeline resize: ' + error);
-      }
+    this.timeline = TimelinesChart()
+      .width(900)
+      .data(this.getRandomData(true))
+      .zQualitative(true)
+      (document.getElementById('chart'));
 
-    );
+    // const resizeSub = this.viewService.resize.subscribe(
+    //   widgetId => {
+    //     if (widgetId === this.widget.id) {
+    //       this.resize();
+    //     }
+    //   }, error => {
+    //     console.log('error in timeline resize: ' + error);
+    //   }
 
-    this.subscription.add(resizeSub);
+    // );
+
+    // this.subscription.add(resizeSub);
   }
 
-  private resize() {
-    this.rows = [...this.rows];
-  }
+  // private resize() {
+  //   this.rows = [...this.rows];
+  // }
 
   private replaceChannel(channel, station) {
     const newStation = {...channel};
@@ -105,6 +115,57 @@ export class TimelineComponent implements OnInit, OnDestroy {
     newStation.title = station.title;
     newStation.parentId = null;
     return newStation;
+  }
+
+  getRandomData = (ordinal: boolean) => {
+    console.log(document.getElementById('chart'));
+    console.log(this.metrics, this.channelGroup);
+    console.log(this.rows);
+    const NGROUPS = 6,
+        MAXSEGMENTS = 20,
+        MINTIME = new Date(2013,2,21);
+
+    const nCategories = 2,
+        categoryLabels = ['In Spec','Out of Spec'],
+        stations = ['ALKI', 'ALCT', 'BEER', 'RCM', 'CPW', 'PUPY'];
+
+    return [...Array(NGROUPS).keys()].map(i => ({
+        group: stations[i],
+        data: getGroupData()
+    }));
+
+    //
+
+    function getGroupData() {
+      const channels = ['ENN', 'ENE', 'ENZ'];
+
+      return [...Array(3).keys()].map(i => ({
+        label: channels[i],
+        data: getSegmentsData()
+      }));
+
+      //
+
+      function getSegmentsData() {
+        const nSegments = Math.ceil(Math.random()*MAXSEGMENTS);
+        const segMaxLength = Math.round(((new Date().valueOf())-MINTIME.valueOf())/nSegments);
+        let runLength = MINTIME;
+
+        return [...Array(nSegments).keys()].map(i => {
+          const tDivide = [Math.random(), Math.random()].sort(),
+            start = new Date(runLength.getTime() + tDivide[0]*segMaxLength),
+            end = new Date(runLength.getTime() + tDivide[1]*segMaxLength);
+
+          runLength = new Date(runLength.getTime() + segMaxLength);
+
+          return {
+            timeRange: [start, end],
+            val: ordinal ? categoryLabels[Math.floor(Math.random()*nCategories)] : Math.random()
+            //labelVal: is optional - only displayed in the labels
+          };
+        });
+      }
+    }
   }
 
   private buildRows(data) {
