@@ -3,7 +3,7 @@ import { Metric } from '../../../../shared/metric';
 import { Channel } from '../../../../shared/channel';
 import { ColumnMode, SortType } from '@swimlane/ngx-datatable';
 import { MeasurementPipe } from '../../../measurement.pipe';
-import { Subscription } from 'rxjs';
+import { Subscription, GroupedObservable } from 'rxjs';
 import { Measurement } from 'src/app/widgets/measurement';
 import { DataFormatService } from 'src/app/widgets/data-format.service';
 import { ViewService } from 'src/app/shared/view.service';
@@ -47,8 +47,7 @@ export class TimelineComponent implements OnInit, OnDestroy {
     selectedMessage: 'selected'
   };
 
-  // Timeline
-  timeline: any;
+  timeline: TimelinesChartInstance;
 
   // rows = [];
   constructor(
@@ -84,11 +83,107 @@ export class TimelineComponent implements OnInit, OnDestroy {
 
     this.subscription.add(dateFormatSub);
 
+    /**
+     * Setup for the D3 timelines chart. Currently is filled with some dummy data just
+     * to make sure that things are working.
+     * Data syntax:
+     * [
+     *   {
+     *     group: "group1name",
+     *     data: [
+     *       {
+     *         label: "label1name",
+     *         data: [
+     *           {
+     *             timeRange: [<date>, <date>],
+     *             val: <val: number (continuous dataScale) or string (ordinal dataScale)> 
+     *           },
+     *           {
+     *             timeRange: [<date>, <date>],
+     *             val: <val>
+     *           },
+     *           (...)
+     *         ]
+     *       },
+     *       {
+     *         label: "label2name",
+     *         data: [...]
+     *       },
+     *       (...)
+     *     ],
+     *   },
+     *   {
+     *     group: "group2name",
+     *     data: [...]
+     *   },
+     *   (...)
+     * ]
+     * At the bottom in parentheses is the element which this will be appended to.
+     * 
+     * timelines-chart readme: https://github.com/vasturiano/timelines-chart
+     */
     this.timeline = TimelinesChart()
       .width(900)
-      .data(this.getRandomData(true))
+      .data([
+        {
+          group: "ALKI",
+          data: [
+              {
+                label: "ENE",
+                data: [
+                  {
+                    timeRange: [new Date(2013,2,21, 12, 31), new Date(2013, 2, 23, 1, 53)],
+                    val: 'In spec'
+                  },
+                  {
+                    timeRange: [new Date(2013,2,24, 8, 17), new Date(2013, 2, 26, 1, 53)],
+                    val: 'Out of spec'
+                  },
+                  {
+                    timeRange: [new Date(2013,2,26, 4, 17), new Date(2013, 2, 27, 8, 53)],
+                    val: 'In spec'
+                  }
+                ]
+              },
+              {
+                label: "ENN",
+                data: [
+                  {
+                    timeRange: [new Date(2013, 2, 21, 12, 31), new Date(2013, 2, 23, 8, 53)],
+                    val: 'In spec'
+                  },
+                  {
+                    timeRange: [new Date(2013, 2, 24, 3, 17), new Date(2013, 2, 26, 9, 53)],
+                    val: 'Out of spec'
+                  },
+                  {
+                    timeRange: [new Date(2013, 2, 26, 14, 17), new Date(2013, 2, 27, 3, 53)],
+                    val: 'In spec'
+                  }
+                ]
+              },
+              {
+                label: "ENZ",
+                data: [
+                  {
+                    timeRange: [new Date(2013, 2, 21, 16, 31), new Date(2013, 2, 23, 2, 53)],
+                    val: 'In spec'
+                  },
+                  {
+                    timeRange: [new Date(2013, 2, 24, 12, 17), new Date(2013, 2, 26, 19, 53)],
+                    val: 'Out of spec'
+                  },
+                  {
+                    timeRange: [new Date(2013, 2, 26, 21, 17), new Date(2013, 2, 28, 1, 53)],
+                    val: 'In spec'
+                  }
+                ]
+              }
+            ]
+        }
+      ])
       .zQualitative(true)
-      (document.getElementById('chart'));
+      (document.getElementById('timeline-chart'));
 
     // const resizeSub = this.viewService.resize.subscribe(
     //   widgetId => {
@@ -115,57 +210,6 @@ export class TimelineComponent implements OnInit, OnDestroy {
     newStation.title = station.title;
     newStation.parentId = null;
     return newStation;
-  }
-
-  getRandomData = (ordinal: boolean) => {
-    console.log(document.getElementById('chart'));
-    console.log(this.metrics, this.channelGroup);
-    console.log(this.rows);
-    const NGROUPS = 6,
-        MAXSEGMENTS = 20,
-        MINTIME = new Date(2013,2,21);
-
-    const nCategories = 2,
-        categoryLabels = ['In Spec','Out of Spec'],
-        stations = ['ALKI', 'ALCT', 'BEER', 'RCM', 'CPW', 'PUPY'];
-
-    return [...Array(NGROUPS).keys()].map(i => ({
-        group: stations[i],
-        data: getGroupData()
-    }));
-
-    //
-
-    function getGroupData() {
-      const channels = ['ENN', 'ENE', 'ENZ'];
-
-      return [...Array(3).keys()].map(i => ({
-        label: channels[i],
-        data: getSegmentsData()
-      }));
-
-      //
-
-      function getSegmentsData() {
-        const nSegments = Math.ceil(Math.random()*MAXSEGMENTS);
-        const segMaxLength = Math.round(((new Date().valueOf())-MINTIME.valueOf())/nSegments);
-        let runLength = MINTIME;
-
-        return [...Array(nSegments).keys()].map(i => {
-          const tDivide = [Math.random(), Math.random()].sort(),
-            start = new Date(runLength.getTime() + tDivide[0]*segMaxLength),
-            end = new Date(runLength.getTime() + tDivide[1]*segMaxLength);
-
-          runLength = new Date(runLength.getTime() + segMaxLength);
-
-          return {
-            timeRange: [start, end],
-            val: ordinal ? categoryLabels[Math.floor(Math.random()*nCategories)] : Math.random()
-            //labelVal: is optional - only displayed in the labels
-          };
-        });
-      }
-    }
   }
 
   private buildRows(data) {
